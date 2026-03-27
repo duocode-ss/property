@@ -1,0 +1,437 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+                  xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+                  xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+                  id="Definitions_1"
+                  targetNamespace="http://bpmn.io/schema/bpmn"
+                  exporter="Camunda Modeler"
+                  exporterVersion="5.0.0">
+
+  <!-- ============================================================ -->
+  <!-- COLLABORATION: One Pool with two Lanes (User / System)       -->
+  <!-- ============================================================ -->
+  <bpmn:collaboration id="Collaboration_1">
+    <bpmn:participant id="Participant_RoleChange" name="Role Change Process" processRef="Process_RoleChange" />
+  </bpmn:collaboration>
+
+  <!-- ============================================================ -->
+  <!-- PROCESS DEFINITION                                           -->
+  <!-- ============================================================ -->
+  <bpmn:process id="Process_RoleChange" isExecutable="false">
+    <bpmn:laneSet id="LaneSet_1">
+
+      <!-- User Lane -->
+      <bpmn:lane id="Lane_User" name="User">
+        <bpmn:flowNodeRef>StartEvent_InitiateRoleChange</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>UserTask_SelectTargetMember</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>UserTask_SelectDesiredRole</bpmn:flowNodeRef>
+      </bpmn:lane>
+
+      <!-- System Lane -->
+      <bpmn:lane id="Lane_System" name="System">
+        <bpmn:flowNodeRef>ServiceTask_EvaluatePermissions</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>ServiceTask_EvaluateHierarchy</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Gateway_BusinessConstraints</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>EndEvent_ActionRejected</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>ServiceTask_EvaluateTargetRole</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Gateway_IsOwnerRole</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>ServiceTask_TransferOwnership</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>ServiceTask_UpdateRole</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Gateway_MergeExecution</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>ServiceTask_UpdatePermissionsTable</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>EndEvent_RoleChanged</bpmn:flowNodeRef>
+      </bpmn:lane>
+
+    </bpmn:laneSet>
+
+    <!-- ========================================================== -->
+    <!-- 1. START (User Lane)                                       -->
+    <!-- ========================================================== -->
+
+    <!-- Start Event: thin circle, no marker -->
+    <bpmn:startEvent id="StartEvent_InitiateRoleChange" name="Initiate Role Change">
+      <bpmn:outgoing>Flow_Start_to_SelectMember</bpmn:outgoing>
+    </bpmn:startEvent>
+
+    <!-- User Task: rounded rectangle with person-icon marker -->
+    <bpmn:userTask id="UserTask_SelectTargetMember" name="Select target member">
+      <bpmn:incoming>Flow_Start_to_SelectMember</bpmn:incoming>
+      <bpmn:outgoing>Flow_SelectMember_to_SelectRole</bpmn:outgoing>
+    </bpmn:userTask>
+
+    <!-- User Task: rounded rectangle with person-icon marker -->
+    <bpmn:userTask id="UserTask_SelectDesiredRole" name="Select desired role">
+      <bpmn:incoming>Flow_SelectMember_to_SelectRole</bpmn:incoming>
+      <bpmn:outgoing>Flow_SelectRole_to_EvalPerms</bpmn:outgoing>
+    </bpmn:userTask>
+
+    <!-- ========================================================== -->
+    <!-- 2. EVALUATION & VALIDATION (System Lane)                   -->
+    <!-- ========================================================== -->
+
+    <!-- Service Task: rounded rectangle with gear-icon marker -->
+    <bpmn:serviceTask id="ServiceTask_EvaluatePermissions" name="Evaluate user permissions">
+      <bpmn:incoming>Flow_SelectRole_to_EvalPerms</bpmn:incoming>
+      <bpmn:outgoing>Flow_EvalPerms_to_EvalHierarchy</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <!-- Service Task: rounded rectangle with gear-icon marker -->
+    <bpmn:serviceTask id="ServiceTask_EvaluateHierarchy" name="Evaluate role hierarchy constraints">
+      <bpmn:incoming>Flow_EvalPerms_to_EvalHierarchy</bpmn:incoming>
+      <bpmn:outgoing>Flow_EvalHierarchy_to_GW1</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <!-- XOR Gateway (Split): diamond with X marker -->
+    <bpmn:exclusiveGateway id="Gateway_BusinessConstraints" name="Are all business constraints met?">
+      <bpmn:incoming>Flow_EvalHierarchy_to_GW1</bpmn:incoming>
+      <bpmn:outgoing>Flow_GW1_No</bpmn:outgoing>
+      <bpmn:outgoing>Flow_GW1_Yes</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+
+    <!-- Error End Event: thick circle with lightning-bolt marker -->
+    <bpmn:endEvent id="EndEvent_ActionRejected" name="Action Rejected">
+      <bpmn:incoming>Flow_GW1_No</bpmn:incoming>
+      <bpmn:errorEventDefinition id="ErrorDef_ActionRejected" />
+    </bpmn:endEvent>
+
+    <!-- ========================================================== -->
+    <!-- 3. EXECUTION (System Lane)                                 -->
+    <!-- ========================================================== -->
+
+    <!-- Service Task: fact-determining task BEFORE the gateway -->
+    <bpmn:serviceTask id="ServiceTask_EvaluateTargetRole" name="Evaluate target role type">
+      <bpmn:incoming>Flow_GW1_Yes</bpmn:incoming>
+      <bpmn:outgoing>Flow_EvalTarget_to_GW2</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <!-- XOR Gateway (Split): diamond with X marker -->
+    <bpmn:exclusiveGateway id="Gateway_IsOwnerRole" name="Is the new role 'Owner'?">
+      <bpmn:incoming>Flow_EvalTarget_to_GW2</bpmn:incoming>
+      <bpmn:outgoing>Flow_GW2_Yes</bpmn:outgoing>
+      <bpmn:outgoing>Flow_GW2_No</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+
+    <!-- Service Task: Ownership transfer path -->
+    <bpmn:serviceTask id="ServiceTask_TransferOwnership" name="Execute Ownership Transfer Routine">
+      <bpmn:incoming>Flow_GW2_Yes</bpmn:incoming>
+      <bpmn:outgoing>Flow_Transfer_to_Merge</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <!-- Service Task: Standard role update path -->
+    <bpmn:serviceTask id="ServiceTask_UpdateRole" name="Update target user role">
+      <bpmn:incoming>Flow_GW2_No</bpmn:incoming>
+      <bpmn:outgoing>Flow_UpdateRole_to_Merge</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <!-- XOR Gateway (Merge): converges the two execution paths -->
+    <bpmn:exclusiveGateway id="Gateway_MergeExecution">
+      <bpmn:incoming>Flow_Transfer_to_Merge</bpmn:incoming>
+      <bpmn:incoming>Flow_UpdateRole_to_Merge</bpmn:incoming>
+      <bpmn:outgoing>Flow_Merge_to_UpdateTable</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+
+    <!-- Service Task: shared post-merge task -->
+    <bpmn:serviceTask id="ServiceTask_UpdatePermissionsTable" name="Update role_permissions mapping in database">
+      <bpmn:incoming>Flow_Merge_to_UpdateTable</bpmn:incoming>
+      <bpmn:outgoing>Flow_UpdateTable_to_End</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <!-- None End Event: thick blank circle, NO inner marker -->
+    <bpmn:endEvent id="EndEvent_RoleChanged" name="Role Successfully Changed">
+      <bpmn:incoming>Flow_UpdateTable_to_End</bpmn:incoming>
+      <!-- No child eventDefinition = None End Event (thick blank circle) -->
+    </bpmn:endEvent>
+
+    <!-- ========================================================== -->
+    <!-- SEQUENCE FLOWS                                             -->
+    <!-- ========================================================== -->
+    <bpmn:sequenceFlow id="Flow_Start_to_SelectMember"
+                       sourceRef="StartEvent_InitiateRoleChange"
+                       targetRef="UserTask_SelectTargetMember" />
+
+    <bpmn:sequenceFlow id="Flow_SelectMember_to_SelectRole"
+                       sourceRef="UserTask_SelectTargetMember"
+                       targetRef="UserTask_SelectDesiredRole" />
+
+    <bpmn:sequenceFlow id="Flow_SelectRole_to_EvalPerms"
+                       sourceRef="UserTask_SelectDesiredRole"
+                       targetRef="ServiceTask_EvaluatePermissions" />
+
+    <bpmn:sequenceFlow id="Flow_EvalPerms_to_EvalHierarchy"
+                       sourceRef="ServiceTask_EvaluatePermissions"
+                       targetRef="ServiceTask_EvaluateHierarchy" />
+
+    <bpmn:sequenceFlow id="Flow_EvalHierarchy_to_GW1"
+                       sourceRef="ServiceTask_EvaluateHierarchy"
+                       targetRef="Gateway_BusinessConstraints" />
+
+    <bpmn:sequenceFlow id="Flow_GW1_No"
+                       name="No - Rule Violated"
+                       sourceRef="Gateway_BusinessConstraints"
+                       targetRef="EndEvent_ActionRejected" />
+
+    <bpmn:sequenceFlow id="Flow_GW1_Yes"
+                       name="Yes - Valid Request"
+                       sourceRef="Gateway_BusinessConstraints"
+                       targetRef="ServiceTask_EvaluateTargetRole" />
+
+    <bpmn:sequenceFlow id="Flow_EvalTarget_to_GW2"
+                       sourceRef="ServiceTask_EvaluateTargetRole"
+                       targetRef="Gateway_IsOwnerRole" />
+
+    <bpmn:sequenceFlow id="Flow_GW2_Yes"
+                       name="Yes"
+                       sourceRef="Gateway_IsOwnerRole"
+                       targetRef="ServiceTask_TransferOwnership" />
+
+    <bpmn:sequenceFlow id="Flow_GW2_No"
+                       name="No"
+                       sourceRef="Gateway_IsOwnerRole"
+                       targetRef="ServiceTask_UpdateRole" />
+
+    <bpmn:sequenceFlow id="Flow_Transfer_to_Merge"
+                       sourceRef="ServiceTask_TransferOwnership"
+                       targetRef="Gateway_MergeExecution" />
+
+    <bpmn:sequenceFlow id="Flow_UpdateRole_to_Merge"
+                       sourceRef="ServiceTask_UpdateRole"
+                       targetRef="Gateway_MergeExecution" />
+
+    <bpmn:sequenceFlow id="Flow_Merge_to_UpdateTable"
+                       sourceRef="Gateway_MergeExecution"
+                       targetRef="ServiceTask_UpdatePermissionsTable" />
+
+    <bpmn:sequenceFlow id="Flow_UpdateTable_to_End"
+                       sourceRef="ServiceTask_UpdatePermissionsTable"
+                       targetRef="EndEvent_RoleChanged" />
+
+  </bpmn:process>
+
+  <!-- ============================================================ -->
+  <!-- BPMN DIAGRAM INTERCHANGE (DI) — Layout & Coordinates         -->
+  <!-- ============================================================ -->
+  <bpmndi:BPMNDiagram id="BPMNDiagram_1">
+    <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="Collaboration_1">
+
+      <!-- ======== POOL ======== -->
+      <bpmndi:BPMNShape id="Participant_RoleChange_di" bpmnElement="Participant_RoleChange" isHorizontal="true">
+        <dc:Bounds x="120" y="40" width="2280" height="540" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+
+      <!-- ======== LANES ======== -->
+      <bpmndi:BPMNShape id="Lane_User_di" bpmnElement="Lane_User" isHorizontal="true">
+        <dc:Bounds x="150" y="40" width="2250" height="200" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+
+      <bpmndi:BPMNShape id="Lane_System_di" bpmnElement="Lane_System" isHorizontal="true">
+        <dc:Bounds x="150" y="240" width="2250" height="340" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+
+      <!-- ======== USER LANE SHAPES ======== -->
+
+      <!-- Start Event -->
+      <bpmndi:BPMNShape id="StartEvent_InitiateRoleChange_di" bpmnElement="StartEvent_InitiateRoleChange">
+        <dc:Bounds x="212" y="122" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="192" y="165" width="76" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+
+      <!-- User Task: Select target member -->
+      <bpmndi:BPMNShape id="UserTask_SelectTargetMember_di" bpmnElement="UserTask_SelectTargetMember">
+        <dc:Bounds x="310" y="100" width="160" height="80" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+
+      <!-- User Task: Select desired role -->
+      <bpmndi:BPMNShape id="UserTask_SelectDesiredRole_di" bpmnElement="UserTask_SelectDesiredRole">
+        <dc:Bounds x="530" y="100" width="160" height="80" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+
+      <!-- ======== SYSTEM LANE SHAPES ======== -->
+
+      <!-- Service Task: Evaluate user permissions -->
+      <bpmndi:BPMNShape id="ServiceTask_EvaluatePermissions_di" bpmnElement="ServiceTask_EvaluatePermissions">
+        <dc:Bounds x="530" y="350" width="160" height="80" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+
+      <!-- Service Task: Evaluate role hierarchy constraints -->
+      <bpmndi:BPMNShape id="ServiceTask_EvaluateHierarchy_di" bpmnElement="ServiceTask_EvaluateHierarchy">
+        <dc:Bounds x="750" y="350" width="160" height="80" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+
+      <!-- XOR Gateway: Are all business constraints met? -->
+      <bpmndi:BPMNShape id="Gateway_BusinessConstraints_di" bpmnElement="Gateway_BusinessConstraints" isMarkerVisible="true">
+        <dc:Bounds x="975" y="365" width="50" height="50" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="920" y="310" width="160" height="40" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+
+      <!-- Error End Event: Action Rejected -->
+      <bpmndi:BPMNShape id="EndEvent_ActionRejected_di" bpmnElement="EndEvent_ActionRejected">
+        <dc:Bounds x="982" y="512" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="960" y="555" width="80" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+
+      <!-- Service Task: Evaluate target role type -->
+      <bpmndi:BPMNShape id="ServiceTask_EvaluateTargetRole_di" bpmnElement="ServiceTask_EvaluateTargetRole">
+        <dc:Bounds x="1100" y="350" width="160" height="80" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+
+      <!-- XOR Gateway (Split): Is the new role 'Owner'? -->
+      <bpmndi:BPMNShape id="Gateway_IsOwnerRole_di" bpmnElement="Gateway_IsOwnerRole" isMarkerVisible="true">
+        <dc:Bounds x="1325" y="365" width="50" height="50" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1298" y="310" width="104" height="40" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+
+      <!-- Service Task: Execute Ownership Transfer Routine (upper branch) -->
+      <bpmndi:BPMNShape id="ServiceTask_TransferOwnership_di" bpmnElement="ServiceTask_TransferOwnership">
+        <dc:Bounds x="1440" y="280" width="160" height="80" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+
+      <!-- Service Task: Update target user role (lower branch) -->
+      <bpmndi:BPMNShape id="ServiceTask_UpdateRole_di" bpmnElement="ServiceTask_UpdateRole">
+        <dc:Bounds x="1440" y="440" width="160" height="80" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+
+      <!-- XOR Gateway (Merge): converge execution paths -->
+      <bpmndi:BPMNShape id="Gateway_MergeExecution_di" bpmnElement="Gateway_MergeExecution" isMarkerVisible="true">
+        <dc:Bounds x="1665" y="365" width="50" height="50" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+
+      <!-- Service Task: Update role_permissions mapping in database -->
+      <bpmndi:BPMNShape id="ServiceTask_UpdatePermissionsTable_di" bpmnElement="ServiceTask_UpdatePermissionsTable">
+        <dc:Bounds x="1780" y="350" width="160" height="80" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+
+      <!-- None End Event: Role Successfully Changed (thick blank circle) -->
+      <bpmndi:BPMNShape id="EndEvent_RoleChanged_di" bpmnElement="EndEvent_RoleChanged">
+        <dc:Bounds x="2002" y="372" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1970" y="415" width="100" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+
+      <!-- ======== SEQUENCE FLOW EDGES ======== -->
+
+      <!-- Start -> Select target member -->
+      <bpmndi:BPMNEdge id="Flow_Start_to_SelectMember_di" bpmnElement="Flow_Start_to_SelectMember">
+        <di:waypoint x="248" y="140" />
+        <di:waypoint x="310" y="140" />
+      </bpmndi:BPMNEdge>
+
+      <!-- Select target member -> Select desired role -->
+      <bpmndi:BPMNEdge id="Flow_SelectMember_to_SelectRole_di" bpmnElement="Flow_SelectMember_to_SelectRole">
+        <di:waypoint x="470" y="140" />
+        <di:waypoint x="530" y="140" />
+      </bpmndi:BPMNEdge>
+
+      <!-- Select desired role -> Evaluate user permissions (crosses lane boundary) -->
+      <bpmndi:BPMNEdge id="Flow_SelectRole_to_EvalPerms_di" bpmnElement="Flow_SelectRole_to_EvalPerms">
+        <di:waypoint x="610" y="180" />
+        <di:waypoint x="610" y="350" />
+      </bpmndi:BPMNEdge>
+
+      <!-- Evaluate user permissions -> Evaluate role hierarchy constraints -->
+      <bpmndi:BPMNEdge id="Flow_EvalPerms_to_EvalHierarchy_di" bpmnElement="Flow_EvalPerms_to_EvalHierarchy">
+        <di:waypoint x="690" y="390" />
+        <di:waypoint x="750" y="390" />
+      </bpmndi:BPMNEdge>
+
+      <!-- Evaluate role hierarchy constraints -> XOR: Are all constraints met? -->
+      <bpmndi:BPMNEdge id="Flow_EvalHierarchy_to_GW1_di" bpmnElement="Flow_EvalHierarchy_to_GW1">
+        <di:waypoint x="910" y="390" />
+        <di:waypoint x="975" y="390" />
+      </bpmndi:BPMNEdge>
+
+      <!-- XOR: No - Rule Violated -> Error End Event (downward) -->
+      <bpmndi:BPMNEdge id="Flow_GW1_No_di" bpmnElement="Flow_GW1_No">
+        <di:waypoint x="1000" y="415" />
+        <di:waypoint x="1000" y="512" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1010" y="453" width="90" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+
+      <!-- XOR: Yes - Valid Request -> Evaluate target role type (rightward) -->
+      <bpmndi:BPMNEdge id="Flow_GW1_Yes_di" bpmnElement="Flow_GW1_Yes">
+        <di:waypoint x="1025" y="390" />
+        <di:waypoint x="1100" y="390" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1030" y="370" width="95" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+
+      <!-- Evaluate target role type -> XOR: Is the new role 'Owner'? -->
+      <bpmndi:BPMNEdge id="Flow_EvalTarget_to_GW2_di" bpmnElement="Flow_EvalTarget_to_GW2">
+        <di:waypoint x="1260" y="390" />
+        <di:waypoint x="1325" y="390" />
+      </bpmndi:BPMNEdge>
+
+      <!-- XOR: Yes -> Execute Ownership Transfer Routine (upper branch) -->
+      <bpmndi:BPMNEdge id="Flow_GW2_Yes_di" bpmnElement="Flow_GW2_Yes">
+        <di:waypoint x="1350" y="365" />
+        <di:waypoint x="1350" y="320" />
+        <di:waypoint x="1440" y="320" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1375" y="300" width="20" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+
+      <!-- XOR: No -> Update target user role (lower branch) -->
+      <bpmndi:BPMNEdge id="Flow_GW2_No_di" bpmnElement="Flow_GW2_No">
+        <di:waypoint x="1350" y="415" />
+        <di:waypoint x="1350" y="480" />
+        <di:waypoint x="1440" y="480" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1375" y="460" width="20" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+
+      <!-- Execute Ownership Transfer -> XOR Merge (upper to center) -->
+      <bpmndi:BPMNEdge id="Flow_Transfer_to_Merge_di" bpmnElement="Flow_Transfer_to_Merge">
+        <di:waypoint x="1600" y="320" />
+        <di:waypoint x="1690" y="320" />
+        <di:waypoint x="1690" y="365" />
+      </bpmndi:BPMNEdge>
+
+      <!-- Update target user role -> XOR Merge (lower to center) -->
+      <bpmndi:BPMNEdge id="Flow_UpdateRole_to_Merge_di" bpmnElement="Flow_UpdateRole_to_Merge">
+        <di:waypoint x="1600" y="480" />
+        <di:waypoint x="1690" y="480" />
+        <di:waypoint x="1690" y="415" />
+      </bpmndi:BPMNEdge>
+
+      <!-- XOR Merge -> Update role_permissions mapping -->
+      <bpmndi:BPMNEdge id="Flow_Merge_to_UpdateTable_di" bpmnElement="Flow_Merge_to_UpdateTable">
+        <di:waypoint x="1715" y="390" />
+        <di:waypoint x="1780" y="390" />
+      </bpmndi:BPMNEdge>
+
+      <!-- Update role_permissions mapping -> None End Event -->
+      <bpmndi:BPMNEdge id="Flow_UpdateTable_to_End_di" bpmnElement="Flow_UpdateTable_to_End">
+        <di:waypoint x="1940" y="390" />
+        <di:waypoint x="2002" y="390" />
+      </bpmndi:BPMNEdge>
+
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+
+</bpmn:definitions>
