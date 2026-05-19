@@ -1,0 +1,834 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>PM-тренажёр: Beeline / биллинг / кэшбэк / тарифы</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #171a21;
+    --panel-2: #1f2330;
+    --text: #e6e8ee;
+    --muted: #9aa3b2;
+    --accent: #ffd400;
+    --accent-dim: #6b5a00;
+    --ok: #4ade80;
+    --bad: #f87171;
+    --border: #2a2f3d;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+  header {
+    padding: 18px 24px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    position: sticky;
+    top: 0;
+    background: rgba(15,17,21,0.92);
+    backdrop-filter: blur(6px);
+    z-index: 10;
+  }
+  h1 { font-size: 18px; margin: 0; font-weight: 600; }
+  h1 span { color: var(--accent); }
+  .score {
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .score b { color: var(--text); }
+  nav {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  nav button {
+    background: var(--panel);
+    color: var(--text);
+    border: 1px solid var(--border);
+    padding: 7px 11px;
+    border-radius: 6px;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  nav button.active { background: var(--accent); color: #111; border-color: var(--accent); }
+  nav button:hover:not(.active) { border-color: var(--accent-dim); }
+  main {
+    max-width: 920px;
+    margin: 0 auto;
+    padding: 24px;
+  }
+  .module { display: none; }
+  .module.active { display: block; }
+  h2 { font-size: 22px; margin: 0 0 6px; }
+  .lead { color: var(--muted); margin-bottom: 22px; }
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px;
+    margin-bottom: 16px;
+  }
+  .card h3 { margin: 0 0 10px; font-size: 16px; }
+  .question { font-weight: 500; margin-bottom: 12px; }
+  .options { display: flex; flex-direction: column; gap: 8px; }
+  .option {
+    padding: 10px 12px;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: border-color .15s;
+  }
+  .option:hover { border-color: var(--accent-dim); }
+  .option.selected { border-color: var(--accent); }
+  .option.correct { border-color: var(--ok); background: rgba(74,222,128,0.08); }
+  .option.wrong { border-color: var(--bad); background: rgba(248,113,113,0.08); }
+  .option.disabled { cursor: default; }
+  .feedback {
+    margin-top: 12px;
+    padding: 10px 12px;
+    border-radius: 6px;
+    background: var(--panel-2);
+    border-left: 3px solid var(--accent);
+    font-size: 14px;
+    color: var(--muted);
+    display: none;
+  }
+  .feedback.show { display: block; }
+  .feedback b { color: var(--text); }
+  .btn {
+    background: var(--accent);
+    color: #111;
+    border: none;
+    padding: 9px 16px;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+    font-size: 14px;
+  }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn.secondary { background: var(--panel-2); color: var(--text); border: 1px solid var(--border); }
+  .checks { display: flex; flex-direction: column; gap: 8px; }
+  .check {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 12px;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  .check input { margin-top: 3px; accent-color: var(--accent); }
+  .check.correct { border-color: var(--ok); }
+  .check.wrong { border-color: var(--bad); }
+  .check.missed { border-color: var(--accent); background: rgba(255,212,0,0.06); }
+  .theory {
+    font-size: 14.5px;
+    line-height: 1.65;
+  }
+  .theory h3 { margin-top: 18px; color: var(--accent); }
+  .theory ul { padding-left: 20px; }
+  .theory code {
+    background: var(--panel-2);
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 13px;
+    color: #ffd97a;
+  }
+  .order-list { display: flex; flex-direction: column; gap: 6px; }
+  .order-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    cursor: grab;
+    user-select: none;
+  }
+  .order-item.dragging { opacity: 0.4; }
+  .order-num {
+    width: 24px;
+    height: 24px;
+    background: var(--accent);
+    color: #111;
+    font-weight: 700;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    flex-shrink: 0;
+  }
+  .order-item.correct { border-color: var(--ok); }
+  .order-item.wrong { border-color: var(--bad); }
+  .progress {
+    height: 4px;
+    background: var(--panel-2);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-bottom: 18px;
+  }
+  .progress > div { height: 100%; background: var(--accent); transition: width .3s; }
+  .tag {
+    display: inline-block;
+    font-size: 11px;
+    padding: 2px 7px;
+    background: var(--accent-dim);
+    color: var(--accent);
+    border-radius: 4px;
+    margin-right: 6px;
+    vertical-align: middle;
+  }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+  textarea {
+    width: 100%;
+    min-height: 90px;
+    background: var(--panel-2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px;
+    font: inherit;
+    resize: vertical;
+  }
+  .hint {
+    font-size: 12.5px;
+    color: var(--muted);
+    margin-top: 8px;
+    font-style: italic;
+  }
+  .summary {
+    text-align: center;
+    padding: 30px;
+  }
+  .summary .big {
+    font-size: 48px;
+    font-weight: 700;
+    color: var(--accent);
+    margin: 10px 0;
+  }
+  footer {
+    text-align: center;
+    color: var(--muted);
+    font-size: 12px;
+    padding: 30px 20px;
+    border-top: 1px solid var(--border);
+    margin-top: 40px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>PM-тренажёр <span>· Beeline / cashback / billing</span></h1>
+  <nav id="nav"></nav>
+  <div class="score">Очки: <b id="score">0</b> / <b id="scoreMax">0</b></div>
+</header>
+
+<main>
+  <div class="progress"><div id="progress" style="width:0%"></div></div>
+
+  <section id="m-intro" class="module active">
+    <h2>Зачем этот тренажёр</h2>
+    <p class="lead">Шесть модулей по структуре реального тестового задания PM в Beeline: ты тренируешь не знание ответов, а сам способ мышления. Сначала пройди теорию, потом 6 практик.</p>
+    <div class="card">
+      <h3>Как устроено</h3>
+      <ul>
+        <li><b>Теория</b> — биллинг, тарифы, кэшбэк простыми словами.</li>
+        <li><b>День 1–2</b> — расставь действия PM в правильном порядке.</li>
+        <li><b>Бизнес-требования</b> — отбери, что обязательно к запуску.</li>
+        <li><b>Коммуникация</b> — выбери правильную формулировку.</li>
+        <li><b>Встреча</b> — собери agenda и MOM.</li>
+        <li><b>Варианты MVP</b> — выбери и обоснуй.</li>
+        <li><b>UAT</b> — найди edge-кейсы и порядок шагов.</li>
+      </ul>
+      <p class="hint">Каждый ответ объясняется. Цель — не сдать тест, а понять логику.</p>
+      <button class="btn" onclick="go('theory')">Начать с теории →</button>
+    </div>
+  </section>
+
+  <section id="m-theory" class="module">
+    <h2>Теория за 5 минут</h2>
+    <p class="lead">Минимум, который ты обязана знать перед интервью в телеком/финтех.</p>
+
+    <div class="card theory">
+      <h3>Тарифы (Product Catalog)</h3>
+      <p>Тариф = правило «что получает абонент за фиксированную плату». Состоит из:</p>
+      <ul>
+        <li><b>Абонплата</b> — списывается ежедневно или ежемесячно.</li>
+        <li><b>Пакеты</b> — минуты, SMS, ГБ. У каждого свой счётчик и срок.</li>
+        <li><b>Опции (add-ons)</b> — то, что докупается сверху.</li>
+        <li><b>Pay-per-use</b> — копейки за единицу после исчерпания пакета.</li>
+        <li><b>Промо</b> — скидка на N месяцев, бесплатная опция за подключение.</li>
+      </ul>
+      <p>Каждое изменение тарифа — это <b>новая версия</b> в каталоге с датой действия, чтобы биллинг мог пересчитывать прошлые периоды.</p>
+
+      <h3>Биллинг: два слоя</h3>
+      <ul>
+        <li><b>Online charging (OCS)</b> — real-time. Сеть в момент сессии спрашивает биллинг «есть деньги?», списывает на лету. Протокол <code>Diameter Gy</code>. Обязателен для prepaid.</li>
+        <li><b>Offline charging</b> — сеть пишет <code>CDR</code> (Call Detail Record), биллинг пересчитывает их пост-фактум. Используется для postpaid и B2B.</li>
+      </ul>
+      <p><b>Ключевые термины:</b> <code>rating</code> (событие → деньги), <code>charging</code> (списание), <code>mediation</code> (нормализация CDR), <code>reconciliation</code> (сверка сети, биллинга, бухгалтерии).</p>
+
+      <h3>Cashback: отложенное обязательство</h3>
+      <p>Кэшбэк — это <b>долг компании пользователю</b>, не «подарок». Технически — отдельный модуль поверх биллинга:</p>
+      <ul>
+        <li><b>Event bus</b> — биллинг публикует событие «случилась транзакция».</li>
+        <li><b>Loyalty engine</b> — применяет правила, создаёт начисление.</li>
+        <li><b>Bonus wallet</b> — отдельный баланс с экспирацией и лимитами.</li>
+        <li><b>Settlement</b> — кто платит: компания или партнёр-мерчант.</li>
+      </ul>
+
+      <h3>4 места, где всегда ломается</h3>
+      <ol>
+        <li><b>Hold-период.</b> Между «купил» и «зачислили кэшбэк» — 24–72ч, чтобы успеть отловить возврат.</li>
+        <li><b>Учёт.</b> Скидка vs маркетинговый расход — разное влияние на P&L и налоги.</li>
+        <li><b>Антифрод.</b> P2P между своими, дробление чеков, возвраты — без лимитов программа разорится.</li>
+        <li><b>Партнёрская сверка.</b> Реестр от партнёра ≠ наши данные → расхождения каждый месяц.</li>
+      </ol>
+
+      <p class="hint">Если поняла эти четыре места — ты понимаешь 80% любой телеком/финтех-программы лояльности.</p>
+      <button class="btn" onclick="go('q1')">Дальше: День 1–2 →</button>
+    </div>
+  </section>
+
+  <section id="m-q1" class="module">
+    <h2><span class="tag">Модуль 1</span>День 1–2: навести порядок</h2>
+    <p class="lead">Ты PM. Прошла неделя, MVP буксует: IT тормозит, маркетинг не решил механики, PRD толком нет. Что делаешь?</p>
+
+    <div class="card" id="q1-order">
+      <h3>Расставь действия PM в правильном порядке</h3>
+      <p class="question">Перетащи карточки — самое важное сверху.</p>
+      <div class="order-list" id="q1-list"></div>
+      <div class="row">
+        <button class="btn" onclick="checkOrder('q1')">Проверить</button>
+        <button class="btn secondary" onclick="resetOrder('q1')">Сбросить</button>
+      </div>
+      <div class="feedback" id="q1-fb"></div>
+    </div>
+
+    <div class="card">
+      <h3>Контрольный вопрос</h3>
+      <p class="question">За «зависимостью от IT» обычно скрывается:</p>
+      <div class="options" data-q="q1b" data-correct="1">
+        <div class="option">Нехватка разработчиков в команде</div>
+        <div class="option">Один неотвеченный вопрос, который висит уже месяц</div>
+        <div class="option">Технический долг архитектуры</div>
+        <div class="option">Низкая мотивация инженеров</div>
+      </div>
+      <div class="feedback" id="q1b-fb"></div>
+    </div>
+
+    <button class="btn" onclick="go('q2')">Дальше: бизнес-требования →</button>
+  </section>
+
+  <section id="m-q2" class="module">
+    <h2><span class="tag">Модуль 2</span>Бизнес-требования для cashback MVP</h2>
+    <p class="lead">Какие из этих требований <b>обязательны</b> к фиксации до старта разработки? Отметь все, что нужно.</p>
+
+    <div class="card">
+      <div class="checks" id="q2-checks"></div>
+      <div class="row">
+        <button class="btn" onclick="checkChecks('q2')">Проверить</button>
+      </div>
+      <div class="feedback" id="q2-fb"></div>
+    </div>
+
+    <button class="btn" onclick="go('q3')">Дальше: коммуникация →</button>
+  </section>
+
+  <section id="m-q3" class="module">
+    <h2><span class="tag">Модуль 3</span>Коммуникация</h2>
+    <p class="lead">Тебе нужно написать сообщение в чат команды и письмо партнёру. Выбери сильную формулировку.</p>
+
+    <div class="card">
+      <h3>Внутренний чат</h3>
+      <p class="question">Цель встречи на 60 минут — финализировать механику cashback. Какая формулировка приглашения сильнее?</p>
+      <div class="options" data-q="q3a" data-correct="2">
+        <div class="option">«Коллеги, давайте созвонимся обсудить cashback. Когда удобно?»</div>
+        <div class="option">«Нужна встреча по cashback. От каждого — статус по своему треку.»</div>
+        <div class="option">«60 минут с IT, маркетингом, биллингом. Цель — финализировать одну механику. Маркетинг: 2–3 приоритета с обоснованием. IT: что реалистично к дедлайну. Биллинг: ограничения по триггеру и лимитам. На выходе — одна механика, ответственный, дата.»</div>
+        <div class="option">«Большая встреча по cashback на следующей неделе, всех касается, не пропускайте.»</div>
+      </div>
+      <div class="feedback" id="q3a-fb"></div>
+    </div>
+
+    <div class="card">
+      <h3>Письмо партнёру</h3>
+      <p class="question">Что точно должно быть в письме партнёру про интеграцию cashback?</p>
+      <div class="checks" id="q3b-checks"></div>
+      <div class="row"><button class="btn" onclick="checkChecks('q3b')">Проверить</button></div>
+      <div class="feedback" id="q3b-fb"></div>
+    </div>
+
+    <button class="btn" onclick="go('q4')">Дальше: встреча →</button>
+  </section>
+
+  <section id="m-q4" class="module">
+    <h2><span class="tag">Модуль 4</span>Встреча: agenda и MOM</h2>
+    <p class="lead">Финализируем механику cashback. Расставь пункты agenda в правильном порядке.</p>
+
+    <div class="card">
+      <h3>Agenda встречи (60 минут)</h3>
+      <div class="order-list" id="q4-list"></div>
+      <div class="row">
+        <button class="btn" onclick="checkOrder('q4')">Проверить</button>
+        <button class="btn secondary" onclick="resetOrder('q4')">Сбросить</button>
+      </div>
+      <div class="feedback" id="q4-fb"></div>
+    </div>
+
+    <div class="card">
+      <h3>MOM: что обязательно зафиксировать</h3>
+      <p class="question">Какие четыре блока должны быть в MOM любой решающей встречи?</p>
+      <div class="checks" id="q4b-checks"></div>
+      <div class="row"><button class="btn" onclick="checkChecks('q4b')">Проверить</button></div>
+      <div class="feedback" id="q4b-fb"></div>
+    </div>
+
+    <button class="btn" onclick="go('q5')">Дальше: варианты MVP →</button>
+  </section>
+
+  <section id="m-q5" class="module">
+    <h2><span class="tag">Модуль 5</span>Три варианта cashback для MVP</h2>
+    <p class="lead">Прочитай три варианта и выбери лучший для <b>первого запуска</b>.</p>
+
+    <div class="card">
+      <h3>Вариант 1: Партнёрский cashback (flat 3%)</h3>
+      <p>Транзакция у партнёра приоритетной категории → 3% на кошелёк через 24ч после подтверждения.</p>
+      <h3>Вариант 2: Активационный бонус</h3>
+      <p>Первые 3 транзакции в любой категории в течение 14 дней после активации → 5% с потолком на транзакцию.</p>
+      <h3>Вариант 3: Категорийный ускоритель</h3>
+      <p>Покупка в «фокус-категории» месяца → 7% cashback с месячным лимитом.</p>
+    </div>
+
+    <div class="card">
+      <p class="question">Какой вариант ты возьмёшь в первый MVP и почему?</p>
+      <div class="options" data-q="q5" data-correct="0">
+        <div class="option"><b>Вариант 1.</b> Самый простой, минимум зависимостей, даёт чистые данные о работе механики.</div>
+        <div class="option"><b>Вариант 2.</b> Больше всех влияет на activation rate.</div>
+        <div class="option"><b>Вариант 3.</b> Самый прибыльный за счёт высокого процента.</div>
+        <div class="option"><b>Все три сразу.</b> Чтобы быстрее набрать данные для аналитики.</div>
+      </div>
+      <div class="feedback" id="q5-fb"></div>
+    </div>
+
+    <button class="btn" onclick="go('q6')">Дальше: UAT →</button>
+  </section>
+
+  <section id="m-q6" class="module">
+    <h2><span class="tag">Модуль 6</span>UAT перед запуском</h2>
+    <p class="lead">Найди все edge-кейсы, которые обязательно проверить перед запуском cashback.</p>
+
+    <div class="card">
+      <h3>Edge-кейсы (отметь те, что нельзя пропустить)</h3>
+      <div class="checks" id="q6-checks"></div>
+      <div class="row"><button class="btn" onclick="checkChecks('q6')">Проверить</button></div>
+      <div class="feedback" id="q6-fb"></div>
+    </div>
+
+    <div class="card">
+      <h3>Порядок UAT</h3>
+      <p>Расставь этапы UAT в правильной последовательности.</p>
+      <div class="order-list" id="q6b-list"></div>
+      <div class="row">
+        <button class="btn" onclick="checkOrder('q6b')">Проверить</button>
+        <button class="btn secondary" onclick="resetOrder('q6b')">Сбросить</button>
+      </div>
+      <div class="feedback" id="q6b-fb"></div>
+    </div>
+
+    <div class="card">
+      <p class="question">UAT для cashback — это в первую очередь:</p>
+      <div class="options" data-q="q6c" data-correct="1">
+        <div class="option">Проверка, что UI выглядит хорошо</div>
+        <div class="option">Проверка, что цифра в кошельке сходится с бухгалтерией</div>
+        <div class="option">Проверка скорости работы API</div>
+        <div class="option">Проверка количества push-уведомлений</div>
+      </div>
+      <div class="feedback" id="q6c-fb"></div>
+    </div>
+
+    <button class="btn" onclick="go('summary')">Завершить и посмотреть результат →</button>
+  </section>
+
+  <section id="m-summary" class="module">
+    <div class="card summary">
+      <h2>Результат</h2>
+      <div class="big" id="finalScore">0%</div>
+      <p id="finalMsg" class="lead"></p>
+      <div class="row" style="justify-content:center;">
+        <button class="btn" onclick="location.reload()">Пройти заново</button>
+        <button class="btn secondary" onclick="go('theory')">Вернуться к теории</button>
+      </div>
+    </div>
+
+    <div class="card theory">
+      <h3>Что повторить, если ошиблась</h3>
+      <ul>
+        <li><b>День 1–2:</b> сначала договориться о критериях успеха, потом снять блокеры людей, потом ставить процесс.</li>
+        <li><b>Требования:</b> 10 осей — триггер, reward, момент, redemption, экспирация, источник денег, лимиты, расчёты с партнёрами, учёт, коммуникация.</li>
+        <li><b>Коммуникация:</b> цель → что подготовить → что зафиксируем на выходе.</li>
+        <li><b>Встреча:</b> сравнение по единой таблице — иначе встреча превращается в «давайте ещё подумаем».</li>
+        <li><b>MVP:</b> самый простой вариант первым, остальные после подтверждения экономики.</li>
+        <li><b>UAT:</b> цифра сходится с бухгалтерией, а не «появилась цифра».</li>
+      </ul>
+    </div>
+  </section>
+</main>
+
+<footer>
+  Тренажёр построен по структуре тестового задания. Цель — научить логике, не ответам.
+</footer>
+
+<script>
+// ---------- data ----------
+const orderTasks = {
+  q1: {
+    items: [
+      { id: 'a', text: 'Встреча с руководством: что значит MVP, к какой дате, что я могу решать сама' },
+      { id: 'b', text: 'Зафиксировать договорённости письменно и разослать в тот же день' },
+      { id: 'c', text: 'Запросить весь существующий материал: PRD, переписку с IT, таблицы механик' },
+      { id: 'd', text: 'Пройтись по командам IT и биллинга, понять что их реально останавливает' },
+      { id: 'e', text: 'Воркшоп с продуктом и маркетингом 1.5ч — выйти с минимальным списком механик' },
+      { id: 'f', text: 'Завести простой Kanban-трекер: задача, ответственный, дата' },
+      { id: 'g', text: 'Объявить регулярный ритм синхронизации (20 минут в неделю или письмо)' },
+    ],
+    correct: ['a','b','c','d','e','f','g'],
+    feedback: 'Логика: <b>1)</b> сначала контракт с руководством, <b>2)</b> зафиксировать письменно, <b>3)</b> собрать материал, <b>4)</b> понять блокеры людей, <b>5)</b> расшить решение по механикам, <b>6)</b> поставить процесс, <b>7)</b> ритм. Главное правило: контракт → материал → люди → процесс.'
+  },
+  q4: {
+    items: [
+      { id: 'a', text: 'Контекст и цель встречи (2 мин)' },
+      { id: 'b', text: 'Короткий статус от каждой команды (5 мин × 3)' },
+      { id: 'c', text: 'Сравнение 2–3 кандидатов по единой таблице: триггер, reward, цель, сложность' },
+      { id: 'd', text: 'Принятие решения: одна механика в MVP, остальные в backlog' },
+      { id: 'e', text: 'Зависимости и риски выбранного варианта' },
+      { id: 'f', text: 'Action items: кто, что, к какой дате' },
+      { id: 'g', text: 'Следующая точка контакта (формат, дата, ответственный)' },
+    ],
+    correct: ['a','b','c','d','e','f','g'],
+    feedback: 'Без сравнения по таблице (пункт 3) встреча превратится в «давайте ещё подумаем». Action items в конце, не в середине — иначе люди уйдут раньше.'
+  },
+  q6b: {
+    items: [
+      { id: 'a', text: 'Подготовка тестовых данных и персон в sandbox' },
+      { id: 'b', text: 'Happy path вручную — глазами' },
+      { id: 'c', text: 'Edge-кейсы: возвраты, дубли, границы лимитов, округление, таймзоны' },
+      { id: 'd', text: 'Финансовая сверка с биллингом и бухгалтерией' },
+      { id: 'e', text: 'End-to-end с push, SMS и историей транзакций' },
+      { id: 'f', text: 'Soft launch на закрытом сегменте 5–7 дней' },
+    ],
+    correct: ['a','b','c','d','e','f'],
+    feedback: 'Сначала данные — без них UAT превратится в случайные клики. Сверка раньше soft launch — иначе выкатишь на людей с расхождением в проводках.'
+  }
+};
+
+const checksTasks = {
+  q2: {
+    items: [
+      { text: 'Базовая механика начисления (триггер, фиксированный или динамический процент)', correct: true },
+      { text: 'Валюта кэшбэка: реальные деньги или баллы с коэффициентом', correct: true },
+      { text: 'Триггер зачисления: сразу, после подтверждения, после hold-периода', correct: true },
+      { text: 'Правила использования (redemption): где, как, минимальный порог', correct: true },
+      { text: 'Срок действия и логика экспирации', correct: true },
+      { text: 'Финансовая модель: кто платит — компания, партнёр, пополам', correct: true },
+      { text: 'Лимиты и антифрод: максимум за транзакцию, день, месяц', correct: true },
+      { text: 'Расчёты с партнёрами: эскроу, постбиллинг, кредитная линия', correct: true },
+      { text: 'Бухгалтерский и налоговый учёт (включая Soliq в Узбекистане)', correct: true },
+      { text: 'Пользовательская коммуникация: push, SMS, отображение в истории', correct: true },
+      { text: 'Цвет иконки кэшбэка в приложении', correct: false },
+      { text: 'Точное название механики для маркетинга', correct: false },
+      { text: 'Список целевых блогеров для PR-запуска', correct: false },
+    ],
+    feedback: 'Десять обязательных осей — триггер, валюта, момент, redemption, экспирация, источник денег, лимиты, расчёты с партнёрами, учёт, коммуникация. Цвет иконки и блогеры — не блокеры релиза, это после.'
+  },
+  q3b: {
+    items: [
+      { text: 'Чёткий subject с темой и тем, что нужно', correct: true },
+      { text: 'Контекст одной строкой: что у нас и зачем пишем', correct: true },
+      { text: 'Конкретный список того, что просим прислать (API, формат, sandbox, rate limits)', correct: true },
+      { text: 'Альтернатива быстрее: предложение 30-минутного созвона', correct: true },
+      { text: 'Конкретный дедлайн ответа', correct: true },
+      { text: 'Подпись и контакты', correct: true },
+      { text: 'Подробная история переписки с командой за последние полгода', correct: false },
+      { text: 'Описание корпоративной культуры компании', correct: false },
+      { text: 'Жалоба на то, что IT тормозит', correct: false },
+    ],
+    feedback: 'Внешнее письмо: контекст → чёткий список → альтернатива быстрее → дедлайн. Никаких «hope this finds you well» и истории на полгода назад.'
+  },
+  q4b: {
+    items: [
+      { text: 'Решение (одна выбранная механика)', correct: true },
+      { text: 'Ответственные с конкретными датами', correct: true },
+      { text: 'Что отложено в backlog с приоритетом', correct: true },
+      { text: 'Следующая точка контакта (дата, формат, состав)', correct: true },
+      { text: 'Подробный пересказ всего, что обсуждалось', correct: false },
+      { text: 'Эмоциональные реакции участников', correct: false },
+      { text: 'Полная транскрипция встречи', correct: false },
+    ],
+    feedback: 'MOM = решение + ответственные с датами + backlog + следующая точка. Если хоть один блок пустой — встреча не состоялась, нужна ещё одна.'
+  },
+  q6: {
+    items: [
+      { text: 'Возврат: откатывается ли начисленный cashback?', correct: true },
+      { text: 'Частичный возврат: пересчитывается ли пропорционально?', correct: true },
+      { text: 'Отказ оплаты после показа «успех»', correct: true },
+      { text: 'Дубли транзакций (одна и та же оплата дважды)', correct: true },
+      { text: 'Сумма ровно на лимите и на копейку выше', correct: true },
+      { text: 'Округление: 3% от 33 — это 0.99 или 1?', correct: true },
+      { text: 'Транзакции на границе суток и таймзон', correct: true },
+      { text: 'Что если у пользователя нет интернета в момент пуша', correct: false },
+      { text: 'Цвет фона страницы кошелька', correct: false },
+      { text: 'Скорость загрузки логотипа', correct: false },
+    ],
+    feedback: 'Семь критичных кейсов: возвраты, дубли, границы лимитов, округление, таймзоны. Именно здесь обычно вскрываются баги, из-за которых cashback потом приходится пересчитывать вручную.'
+  }
+};
+
+const singleChoices = {
+  q1b: { correct: 1, fb: 'За «зависимостью от IT» почти всегда стоит один неотвеченный вопрос. PM не делает задачи за других — он расшивает узкие места.' },
+  q3a: { correct: 2, fb: 'Сильная формулировка задаёт цель, что подготовить от каждого, что зафиксируем на выходе. Без этого встреча превратится в обсуждение без решения.' },
+  q5:  { correct: 0, fb: 'Вариант 1 — минимум зависимостей, чистые данные о работе механики. Варианты 2 и 3 имеет смысл запускать после того, как базовая экономика подтверждена.' },
+  q6c: { correct: 1, fb: 'UAT для cashback — это «цифра сходится с бухгалтерией», а не «появилась цифра». Если проводки разъехались, программу нельзя выпускать.' }
+};
+
+// ---------- state ----------
+const state = {
+  current: 'intro',
+  earned: {},   // qId -> points earned
+  max: {}       // qId -> max points
+};
+
+const modules = ['intro','theory','q1','q2','q3','q4','q5','q6','summary'];
+const labels = { intro:'Старт', theory:'Теория', q1:'1', q2:'2', q3:'3', q4:'4', q5:'5', q6:'6', summary:'Итог' };
+
+// ---------- nav ----------
+function renderNav() {
+  const nav = document.getElementById('nav');
+  nav.innerHTML = '';
+  modules.forEach(m => {
+    const b = document.createElement('button');
+    b.textContent = labels[m];
+    b.className = (m === state.current) ? 'active' : '';
+    b.onclick = () => go(m);
+    nav.appendChild(b);
+  });
+}
+function go(m) {
+  state.current = m;
+  document.querySelectorAll('.module').forEach(el => el.classList.remove('active'));
+  document.getElementById('m-' + m).classList.add('active');
+  renderNav();
+  updateProgress();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  if (m === 'summary') renderSummary();
+}
+function updateProgress() {
+  const idx = modules.indexOf(state.current);
+  document.getElementById('progress').style.width = (idx / (modules.length - 1) * 100) + '%';
+}
+
+// ---------- single choice ----------
+function setupSingleChoices() {
+  document.querySelectorAll('.options').forEach(group => {
+    const q = group.dataset.q;
+    const correct = parseInt(group.dataset.correct, 10);
+    state.max[q] = 1;
+    const opts = group.querySelectorAll('.option');
+    opts.forEach((opt, i) => {
+      opt.onclick = () => {
+        if (group.dataset.answered) return;
+        group.dataset.answered = '1';
+        opts.forEach((o, j) => {
+          o.classList.add('disabled');
+          if (j === correct) o.classList.add('correct');
+          else if (j === i) o.classList.add('wrong');
+        });
+        const ok = (i === correct);
+        state.earned[q] = ok ? 1 : 0;
+        const fb = document.getElementById(q + '-fb');
+        if (fb) {
+          fb.innerHTML = '<b>' + (ok ? 'Верно.' : 'Не совсем.') + '</b> ' + singleChoices[q].fb;
+          fb.classList.add('show');
+        }
+        renderScore();
+      };
+    });
+  });
+}
+
+// ---------- order tasks ----------
+function shuffle(a) {
+  const r = a.slice();
+  for (let i = r.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [r[i], r[j]] = [r[j], r[i]];
+  }
+  return r;
+}
+function renderOrder(qId) {
+  const task = orderTasks[qId];
+  const list = document.getElementById(qId + '-list');
+  list.innerHTML = '';
+  state.max[qId] = task.items.length;
+  const order = shuffle(task.items);
+  order.forEach((it, idx) => {
+    const div = document.createElement('div');
+    div.className = 'order-item';
+    div.draggable = true;
+    div.dataset.id = it.id;
+    div.innerHTML = '<span class="order-num">' + (idx + 1) + '</span><span>' + it.text + '</span>';
+    list.appendChild(div);
+  });
+  attachDnD(list);
+}
+function refreshNumbers(list) {
+  list.querySelectorAll('.order-item').forEach((el, i) => {
+    el.querySelector('.order-num').textContent = i + 1;
+  });
+}
+function attachDnD(list) {
+  let dragged = null;
+  list.addEventListener('dragstart', e => {
+    if (!e.target.classList.contains('order-item')) return;
+    dragged = e.target;
+    e.target.classList.add('dragging');
+  });
+  list.addEventListener('dragend', e => {
+    if (dragged) dragged.classList.remove('dragging');
+    dragged = null;
+    refreshNumbers(list);
+  });
+  list.addEventListener('dragover', e => {
+    e.preventDefault();
+    const after = getDragAfter(list, e.clientY);
+    if (!dragged) return;
+    if (after == null) list.appendChild(dragged);
+    else list.insertBefore(dragged, after);
+  });
+}
+function getDragAfter(container, y) {
+  const items = [...container.querySelectorAll('.order-item:not(.dragging)')];
+  return items.reduce((closest, child) => {
+    const box = child.getBoundingClientRect();
+    const offset = y - box.top - box.height / 2;
+    if (offset < 0 && offset > closest.offset) return { offset, element: child };
+    return closest;
+  }, { offset: -Infinity }).element;
+}
+function checkOrder(qId) {
+  const task = orderTasks[qId];
+  const list = document.getElementById(qId + '-list');
+  const items = [...list.querySelectorAll('.order-item')];
+  let score = 0;
+  items.forEach((el, i) => {
+    el.classList.remove('correct', 'wrong');
+    if (el.dataset.id === task.correct[i]) {
+      el.classList.add('correct');
+      score++;
+    } else {
+      el.classList.add('wrong');
+    }
+  });
+  state.earned[qId] = score;
+  const fb = document.getElementById(qId + '-fb');
+  fb.innerHTML = '<b>' + score + ' из ' + task.items.length + ' на своих местах.</b> ' + task.feedback;
+  fb.classList.add('show');
+  renderScore();
+}
+function resetOrder(qId) {
+  renderOrder(qId);
+  document.getElementById(qId + '-fb').classList.remove('show');
+}
+
+// ---------- checks ----------
+function renderChecks(qId) {
+  const task = checksTasks[qId];
+  const wrap = document.getElementById(qId + '-checks');
+  wrap.innerHTML = '';
+  state.max[qId] = task.items.length;
+  task.items.forEach((it, i) => {
+    const lbl = document.createElement('label');
+    lbl.className = 'check';
+    lbl.innerHTML = '<input type="checkbox" data-correct="' + it.correct + '" /><span>' + it.text + '</span>';
+    wrap.appendChild(lbl);
+  });
+}
+function checkChecks(qId) {
+  const task = checksTasks[qId];
+  const wrap = document.getElementById(qId + '-checks');
+  const items = [...wrap.querySelectorAll('.check')];
+  let score = 0;
+  items.forEach(it => {
+    const cb = it.querySelector('input');
+    const isCorrectItem = cb.dataset.correct === 'true';
+    const checked = cb.checked;
+    it.classList.remove('correct', 'wrong', 'missed');
+    if (checked && isCorrectItem) { it.classList.add('correct'); score++; }
+    else if (!checked && !isCorrectItem) { it.classList.add('correct'); score++; }
+    else if (checked && !isCorrectItem) { it.classList.add('wrong'); }
+    else if (!checked && isCorrectItem) { it.classList.add('missed'); }
+    cb.disabled = true;
+  });
+  state.earned[qId] = score;
+  const fb = document.getElementById(qId + '-fb');
+  fb.innerHTML = '<b>' + score + ' из ' + task.items.length + '.</b> ' + task.feedback;
+  fb.classList.add('show');
+  renderScore();
+}
+
+// ---------- score ----------
+function renderScore() {
+  let earned = 0, max = 0;
+  Object.values(state.earned).forEach(v => earned += v);
+  Object.values(state.max).forEach(v => max += v);
+  document.getElementById('score').textContent = earned;
+  document.getElementById('scoreMax').textContent = max;
+}
+function renderSummary() {
+  let earned = 0, max = 0;
+  Object.values(state.earned).forEach(v => earned += v);
+  Object.values(state.max).forEach(v => max += v);
+  const pct = max > 0 ? Math.round(earned / max * 100) : 0;
+  document.getElementById('finalScore').textContent = pct + '%';
+  let msg;
+  if (pct >= 85) msg = 'Сильно. Ты уверенно держишь senior PM-логику: контракт → блокеры → процесс, цифры сходятся с бухгалтерией, MVP — самый простой.';
+  else if (pct >= 65) msg = 'Хорошая база. Перечитай теорию по слабым модулям — у тебя пара пробелов в edge-кейсах или коммуникации.';
+  else if (pct >= 40) msg = 'Логика просматривается, но половина деталей теряется. Пройди ещё раз с теорией под рукой.';
+  else msg = 'Стоит начать с теории и пройти модули по второму кругу — не торопись с ответами.';
+  document.getElementById('finalMsg').textContent = msg;
+}
+
+// ---------- init ----------
+function init() {
+  renderNav();
+  updateProgress();
+  setupSingleChoices();
+  renderOrder('q1');
+  renderOrder('q4');
+  renderOrder('q6b');
+  renderChecks('q2');
+  renderChecks('q3b');
+  renderChecks('q4b');
+  renderChecks('q6');
+  // pre-count max for single-choice
+  ['q1b','q3a','q5','q6c'].forEach(q => { if (!state.max[q]) state.max[q] = 1; });
+  renderScore();
+}
+init();
+</script>
+</body>
+</html>
